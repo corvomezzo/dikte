@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dikte">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon.svg">
+<title>Dikte</title>
+<style>
+  :root {
+    --bg: #f4f4f1; --fg: #1b1b1a; --muted: #6d6d68; --card: #ffffff; --line: #e2e2dc;
+    --accent: #e0472e; --accent-fg: #fff; --ok: #2f8f5b; --busy: #c98a12;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121211; --fg: #ededea; --muted: #9a9a94; --card: #1d1d1b; --line: #2e2e2b;
+            --accent: #ff5a3c; --accent-fg: #fff; --ok: #4cc283; --busy: #e8b13a; }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 16px);
+    -webkit-user-select: none; user-select: none; overscroll-behavior: none;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+  #status { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  #dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  #dot.ok { background: var(--ok); } #dot.busy { background: var(--busy); } #dot.err { background: var(--accent); }
+
+  #log { flex: 1; overflow-y: auto; margin: 14px 0; display: flex; flex-direction: column-reverse; gap: 8px;
+         -webkit-user-select: text; user-select: text; }
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .item small { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .item.err { border-color: var(--accent); }
+  .empty { color: var(--muted); text-align: center; margin: auto 0; font-size: 15px; }
+
+  #modes { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+           padding: 3px; gap: 3px; margin-bottom: 10px; }
+  #modes button { flex: 1; height: 38px; border: 0; border-radius: 9px; background: transparent;
+                  color: var(--muted); font-size: 15px; font-weight: 600; }
+  #modes button[aria-checked="true"] { background: var(--fg); color: var(--bg); }
+  #modes button:disabled { opacity: .35; }
+  .raw { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 14px; }
+  .raw button { margin-top: 6px; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line);
+                background: transparent; color: var(--fg); font-size: 13px; }
+  #meter { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-bottom: 14px; }
+  #meter > div { height: 100%; width: 0; background: var(--accent); transition: width 60ms linear; }
+
+  #mic {
+    width: 100%; height: 132px; border: 0; border-radius: 24px; font-size: 19px; font-weight: 600;
+    background: var(--card); color: var(--fg); border: 2px solid var(--line); touch-action: none;
+    transition: transform 80ms ease, background 120ms ease;
+  }
+  #mic.rec { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); transform: scale(0.98); }
+  #mic.busy { opacity: .6; }
+  #hint { text-align: center; color: var(--muted); font-size: 12px; margin: 8px 0 12px; }
+
+  .row { display: flex; gap: 8px; }
+  .row button, .row input {
+    flex: 1; height: 46px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--card); color: var(--fg); font-size: 15px; min-width: 0;
+  }
+  .row input { flex: 3; padding: 0 12px; -webkit-user-select: text; user-select: text; }
+  .row + .row, .hint-small + .row { margin-top: 8px; }
+  .hint-small { text-align: right; color: var(--muted); font-size: 11px; margin-top: 4px; }
+  #undo.armed { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Dikte</h1>
+  <div id="status"><span id="dot"></span><span id="statusText">bağlanıyor…</span></div>
+</header>
+
+<div id="log"><div class="empty" id="empty">Butona dokun ve konuş.<br>Metin PC'de imlecin olduğu yere yazılır.</div></div>
+
+<div id="modes" role="radiogroup" aria-label="Düzenleme">
+  <button data-mode="raw" role="radio">Ham</button>
+  <button data-mode="clean" role="radio">Temizle</button>
+  <button data-mode="short" role="radio">Kısalt</button>
+</div>
+<div id="meter"><div></div></div>
+<button id="mic">Konuşmak için dokun</button>
+<div id="hint">Dokun: başlat / bitir · Basılı tut: bırakınca gönder</div>
+
+<div class="row">
+  <button data-key="space">Boşluk</button>
+  <button data-key="enter">Enter ⏎</button>
+  <button data-key="backspace">Sil ⌫</button>
+  <button id="undo">Geri al ↶</button>
+</div>
+<div id="undoHint" class="hint-small">Geri al: dokun = son dikte · basılı tut = tümü</div>
+<div class="row">
+  <input id="manual" placeholder="Elle yaz / klavye diktesi" autocomplete="off" enterkeyhint="send">
+  <button id="send">Gönder</button>
+</div>
+<div class="row" style="justify-content:flex-end;margin-top:10px">
+  <label class="toggle"><input type="checkbox" id="injectToggle" checked> PC'ye yaz</label>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const mic = $("mic"), dot = $("dot"), statusText = $("statusText"), logEl = $("log");
+  const meterBar = document.querySelector("#meter > div");
+
+  // Token URL hash'inde gelir (#t=...). Ana ekrana eklerken hash URL'de kalmalı:
+  // iOS'ta ana ekran uygulamasının depolaması Safari'den ayrıdır.
+  const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+                  set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+  const hashToken = new URLSearchParams(location.hash.slice(1)).get("t");
+  if (hashToken) store.set("token", hashToken);
+  const token = hashToken || store.get("token") || "";
+
+  function setStatus(kind, text) { dot.className = kind; statusText.textContent = text; }
+
+  async function api(path, opts = {}) {
+    const r = await fetch(path, { ...opts, headers: { "x-token": token, ...(opts.headers || {}) } });
+    if (!r.ok) {
+      let msg = r.status + "";
+      try { msg = (await r.json()).detail || msg; } catch {}
+      throw new Error(msg);
+    }
+    return r.json();
+  }
+
+  function addLog(text, meta, isErr) {
+    $("empty")?.remove();
+    const d = document.createElement("div");
+    d.className = "item" + (isErr ? " err" : "");
+    d.textContent = text;
+    if (meta) { const s = document.createElement("small"); s.textContent = meta; d.appendChild(s); }
+    logEl.prepend(d);
+  }
+
+  // --- Düzenleme modu (Ham / Temizle / Kısalt) ---
+  let mode = store.get("mode") || "raw";
+  const modeBtns = document.querySelectorAll("#modes [data-mode]");
+  function setMode(m) {
+    mode = m; store.set("mode", m);
+    modeBtns.forEach(b => b.setAttribute("aria-checked", String(b.dataset.mode === m)));
+  }
+  modeBtns.forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+  setMode(mode);
+
+  async function ping() {
+    if (!token) { setStatus("err", "token yok — QR kodu tekrar okutun"); return; }
+    try {
+      const r = await api("/api/ping");
+      const refineOn = !!r.refine_model;
+      modeBtns.forEach(b => { if (b.dataset.mode !== "raw") b.disabled = !refineOn; });
+      if (!refineOn && mode !== "raw") setMode("raw");
+      setStatus("ok", "hazır" + (refineOn ? " · " + r.refine_model : ""));
+      if (r.refine_error && !ping.warned && (ping.warned = true)) addLog("Düzenleme kapalı: " + r.refine_error, ".env dosyasına GEMINI_API_KEY yazıp sunucuyu yeniden başlatın", true);
+    } catch (e) { setStatus("err", "bağlantı yok: " + e.message); }
+  }
+
+  function addResult(r) {
+    $("empty")?.remove();
+    const d = document.createElement("div");
+    d.className = "item";
+    d.textContent = r.text;
+    const meta = [`${r.audio_s} sn ses`, `STT ${r.stt_s} sn`];
+    if (r.refine_s != null) meta.push(`${r.mode === "short" ? "kısaltma" : "temizlik"} ${r.refine_s} sn`);
+    if (r.typed) meta.push("yazıldı");
+    const s = document.createElement("small"); s.textContent = meta.join(" · "); d.appendChild(s);
+    if (r.refine_error) {
+      const e = document.createElement("small"); e.textContent = "Düzenlenemedi, ham yazıldı: " + r.refine_error;
+      e.style.color = "var(--accent)"; d.appendChild(e);
+    }
+    if (r.refined) {
+      const raw = document.createElement("div"); raw.className = "raw";
+      raw.textContent = "Ham: " + r.transcript;
+      if (r.typed && r.chunk) {
+        const b = document.createElement("button"); b.textContent = "Ham halini yaz";
+        b.addEventListener("click", async () => {
+          try {
+            await api("/api/replace", { method: "POST", headers: { "content-type": "application/json" },
+                                        body: JSON.stringify({ chunk: r.chunk, text: r.transcript }) });
+            b.textContent = "Ham hali yazıldı ✓"; b.disabled = true;
+          } catch (e) { addLog("Değiştirilemedi: " + e.message, "", true); }
+        });
+        raw.appendChild(document.createElement("br")); raw.appendChild(b);
+      }
+      d.appendChild(raw);
+    }
+    logEl.prepend(d);
+  }
+
+  // --- Kayıt ---
+  let stream = null, recorder = null, chunks = [], recording = false, busy = 0;
+  let audioCtx = null, analyser = null, meterRaf = 0, wakeLock = null;
+
+  function pickMime() {
+    for (const m of ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
+    }
+    return "";
+  }
+
+  async function ensureStream() {
+    if (stream && stream.getAudioTracks().some(t => t.readyState === "live")) return stream;
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
+    });
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
+    } catch { analyser = null; }
+    return stream;
+  }
+
+  function runMeter() {
+    if (!analyser) return;
+    const buf = new Uint8Array(analyser.fftSize);
+    const tick = () => {
+      analyser.getByteTimeDomainData(buf);
+      let peak = 0; for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
+      meterBar.style.width = Math.min(100, peak / 64 * 100) + "%";
+      meterRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+  function stopMeter() { cancelAnimationFrame(meterRaf); meterBar.style.width = "0"; }
+
+  async function startRec() {
+    if (recording) return;
+    try { await ensureStream(); }
+    catch (e) { addLog("Mikrofon açılamadı: " + e.message + ". Sertifika kurulumu tamam mı?", "", true); return; }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    const mime = pickMime();
+    recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    chunks = [];
+    recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    recorder.onstop = () => send(new Blob(chunks, { type: recorder.mimeType || mime || "audio/mp4" }));
+    recorder.start();
+    recording = true;
+    mic.classList.add("rec"); mic.textContent = "Dinliyorum… (bitirmek için dokun)";
+    runMeter();
+    try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {}
+  }
+
+  function stopRec() {
+    if (!recording) return;
+    recording = false;
+    recorder.stop();
+    mic.classList.remove("rec"); mic.textContent = "Konuşmak için dokun";
+    stopMeter();
+  }
+
+  async function send(blob) {
+    if (blob.size < 800) return;
+    busy++; mic.classList.add("busy");
+    setStatus("busy", mode === "raw" ? "çözümleniyor…" : "çözümleniyor ve düzenleniyor…");
+    const inj = $("injectToggle").checked ? "1" : "0";
+    try {
+      const r = await api(`/api/transcribe?inject=${inj}&mode=${mode}`, {
+        method: "POST", body: blob, headers: { "content-type": blob.type || "application/octet-stream" }
+      });
+      if (r.text) addResult(r);
+      else addLog("(konuşma algılanmadı)", r.raw ? "ham: " + r.raw : "", false);
+      setStatus("ok", "hazır");
+    } catch (e) {
+      addLog("Hata: " + e.message, "", true); setStatus("err", "hata");
+    } finally {
+      if (--busy === 0) mic.classList.remove("busy");
+    }
+  }
+
+  // Dokun = aç/kapa; basılı tut (>400 ms) = bırakınca gönder
+  let downAt = 0, startedByThisPress = false;
+  mic.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    downAt = performance.now();
+    if (recording) { stopRec(); startedByThisPress = false; }
+    else { startedByThisPress = true; startRec(); }
+  });
+  const onUp = () => {
+    if (startedByThisPress && recording && performance.now() - downAt > 400) stopRec();
+    startedByThisPress = false;
+  };
+  mic.addEventListener("pointerup", onUp);
+  mic.addEventListener("pointercancel", onUp);
+  mic.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  document.querySelectorAll("[data-key]").forEach(b => b.addEventListener("click", async () => {
+    try { await api("/api/key/" + b.dataset.key, { method: "POST" }); }
+    catch (e) { addLog("Hata: " + e.message, "", true); }
+  }));
+
+  // Geri al: dokun = son dikteyi sil, 600 ms basılı tut = bu penceredeki tüm dikteleri sil
+  const undoBtn = $("undo");
+  let undoTimer = 0, undoFired = false;
+  async function undo(all) {
+    try {
+      const r = await api("/api/undo" + (all ? "?all=1" : ""), { method: "POST" });
+      if (r.deleted) addLog(all ? "Tümü geri alındı" : "Son dikte geri alındı", `${r.deleted} karakter silindi`);
+      else addLog("Geri alınacak bir şey yok", "Başka pencereye geçtiyseniz o penceredeki dikte geri alınamaz");
+    } catch (e) { addLog("Hata: " + e.message, "", true); }
+  }
+  undoBtn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    undoFired = false;
+    undoTimer = setTimeout(() => { undoFired = true; undoBtn.classList.add("armed"); undo(true); }, 600);
+  });
+  const undoUp = (cancel) => {
+    clearTimeout(undoTimer);
+    undoBtn.classList.remove("armed");
+    if (!undoFired && !cancel) undo(false);
+    undoFired = true;
+  };
+  undoBtn.addEventListener("pointerup", () => undoUp(false));
+  undoBtn.addEventListener("pointercancel", () => undoUp(true));
+  undoBtn.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  async function sendManual() {
+    const inp = $("manual"), text = inp.value;
+    if (!text) return;
+    try {
+      await api("/api/type", { method: "POST", headers: { "content-type": "application/json" },
+                               body: JSON.stringify({ text }) });
+      addLog(text, "elle gönderildi"); inp.value = "";
+    } catch (e) { addLog("Hata: " + e.message, "", true); }
+  }
+  $("send").addEventListener("click", sendManual);
+  $("manual").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); sendManual(); } });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") ping();
+    else if (recording) stopRec();
+  });
+  ping();
+})();
+</script>
+</body>
+</html>

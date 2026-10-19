@@ -1,0 +1,27 @@
+[project]
+name = "dikte"
+version = "0.1.0"
+description = "Telefondan konuş, PC'de imlecin olduğu yere yazsın (yerel Whisper STT)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "httpx>=0.27",
+    "cryptography>=43",
+    "qrcode>=8.0",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# CPU yedek backend'i (whisper.cpp yoksa). Mevcut HF cache'teki faster-whisper modellerini kullanır.
+cpu = ["faster-whisper>=1.1"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

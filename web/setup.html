@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dikte Kurulum</title>
+<style>
+  :root { --bg: #f4f4f1; --fg: #1b1b1a; --muted: #6d6d68; --card: #fff; --line: #e2e2dc; --accent: #e0472e; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121211; --fg: #ededea; --muted: #9a9a94; --card: #1d1d1b; --line: #2e2e2b; --accent: #ff5a3c; }
+  }
+  body { background: var(--bg); color: var(--fg); margin: 0; padding: 20px 16px 40px;
+         font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  p.lead { color: var(--muted); margin: 0 0 20px; }
+  ol { padding-left: 0; list-style: none; counter-reset: s; margin: 0; }
+  li { counter-increment: s; background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+       padding: 14px 14px 14px 52px; margin-bottom: 10px; position: relative; }
+  li::before { content: counter(s); position: absolute; left: 14px; top: 14px; width: 26px; height: 26px;
+               border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700;
+               display: grid; place-items: center; font-size: 14px; }
+  b { font-weight: 600; }
+  a.btn { display: inline-block; margin-top: 8px; padding: 10px 16px; border-radius: 10px;
+          background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; }
+  code { word-break: break-all; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Dikte — iPhone kurulumu</h1>
+  <p class="lead">Bir kerelik. Safari'nin mikrofona izin vermesi için PC'nin yerel sertifikasına güvenmesi gerekiyor.</p>
+  <ol>
+    <li>Bu sayfayı <b>Safari</b>'de açtığından emin ol, sonra sertifikayı indir:<br>
+        <a class="btn" href="/ca.crt">Sertifikayı indir</a><br>
+        “Profil indirildi” mesajında <b>Kapat</b>'a dokun.</li>
+    <li><b>Ayarlar › Genel › VPN ve Aygıt Yönetimi</b> › “Dikte Yerel CA” › <b>Yükle</b>.</li>
+    <li><b>Ayarlar › Genel › Hakkında › Sertifika Güven Ayarları</b> › “Dikte Yerel CA” için anahtarı <b>aç</b>.</li>
+    <li>Uygulamayı açmak için <b>PC ekranındaki QR kodu</b> okut. Erişim anahtarı (token) güvenlik için
+        bu sayfada gösterilmez; yalnızca QR kodda ve PC'deki konsol çıktısında bulunur.</li>
+    <li>Safari'de <b>Paylaş › Ana Ekrana Ekle</b>. Böylece tam ekran açılır ve token kayıtlı kalır.</li>
+  </ol>
+  <p class="lead" style="margin-top:16px">Uygulama adresi (token'sız):<br><code>{{APP_URL}}</code></p>
+</main>
+</body>
+</html>

@@ -1,0 +1,36 @@
+# Dikte sunucusu ayarları
+
+[server]
+https_port = 8443          # telefon bu porttan uygulamayı açar
+http_port = 8080           # sadece CA sertifikası indirme + kurulum sayfası
+# Boş bırakılırsa LAN IP'leri otomatik bulunur (sertifikaya SAN olarak eklenir)
+hosts = []
+
+[stt]
+backend = "whispercpp"     # "whispercpp" (GPU/Vulkan) veya "faster-whisper" (CPU yedek)
+language = "tr"
+# Noktalama/büyük harf alışkanlığını yönlendiren başlangıç metni
+prompt = "Merhaba, bugün nasılsın? Toplantı saat üçte, ardından raporu gönderiyorum."
+
+[stt.whispercpp]
+exe = "bin/whisper-server.exe"
+model = "models/ggml-large-v3-turbo-q8_0.bin"
+port = 8178
+threads = 6
+flash_attn = true
+
+[stt.faster_whisper]
+model = "large-v3"         # HF cache'teki Systran/faster-whisper-* modelleri: base, small, medium, large-v3
+device = "cpu"
+compute_type = "int8"
+
+[refine]
+# Gemini ile metin düzenleme (Temizle / Kısalt). Anahtar: .env dosyasında GEMINI_API_KEY
+enabled = true
+model = "auto"             # "auto" = anahtarınızla erişilebilen en yeni kararlı Flash-Lite (yoksa Flash)
+timeout_s = 8.0            # aşılırsa ham metin yazılır
+min_words = 4              # "Temizle" modunda bundan kısa dikteler Gemini'ye gönderilmez
+
+[inject]
+mode = "type"              # "type" (Unicode SendInput) veya "paste" (pano + Ctrl+V)
+trailing_space = true      # her dikte parçasından sonra boşluk ekle

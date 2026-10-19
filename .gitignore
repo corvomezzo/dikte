@@ -1,0 +1,36 @@
+# Ortam
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Çalışma zamanı durumu: sertifikalar + CA özel anahtarı, erişim token'ı, loglar — ASLA commit'lemeyin
+data/
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+token.txt
+*.log
+
+# Gizli anahtarlar
+.env
+.env.*
+!.env.example
+
+# Büyük/derlenmiş dosyalar
+models/
+bin/
+vendor/
+build/
+
+# Ses kayıtları (kişisel veri olabilir)
+samples/
+*.wav
+*.m4a
+*.mp4
+*.pcm
+
+# Claude Code yerel ayarları
+.claude/
